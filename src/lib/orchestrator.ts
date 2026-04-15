@@ -1,78 +1,86 @@
+import { OrchestratorResponse, EmergencyRecord } from './types';
 import { analyzeTriage } from './modules/triage';
 import { getHospitalByInventory } from './database';
-import { synthesizeFHIR } from './modules/synthesis';
-import { processSurveillance } from './modules/surveillance';
-import { OrchestratorResponse, HealthOSSession } from './types';
+import { getGeofence } from './modules/surveillance';
+import { getPatientById } from './mockPatientData';
+import { generateEmergencyBundle, generateMinimalBundle } from './modules/patientRecords';
+import { useHealthStore } from './store';
 
-// Mock state management
-const sessions: Record<string, HealthOSSession> = {};
+export async function processHealthRequest(sessionId: string, transcript: string, patientId?: string): Promise<OrchestratorResponse> {
+  // Phase 1: Clinical Triage (Gemini-Powered)
+  const triage = await analyzeTriage(transcript);
 
-export async function processHealthRequest(
-  session_id: string,
-  transcript: string,
-  geofence: string = 'NYC_DOWNTOWN'
-): Promise<OrchestratorResponse> {
-  // 1. State Recovery
-  if (!sessions[session_id]) {
-    sessions[session_id] = {
-      session_id,
-      current_status: 'INITIALIZING',
-      auth_status: 'UNAUTHORIZED'
-    };
-  }
-  const session = sessions[session_id];
-
-  // 2. Module 1: Triage & SOS (High Priority)
-  const triage = analyzeTriage(transcript);
+  // Phase 2: Identity-Aware Routing
+  let hospitalAssignment = null;
+  const mockCoords: [number, number] = [12.9716, 77.5946]; 
+  const patient = patientId ? getPatientById(patientId) : undefined;
   
-  // 4. Module 4: Surveillance (Check for patterns across sessions)
-  let outbreak_alert = null;
-  if (triage.priority === 'HIGH' || triage.priority === 'CRITICAL') {
-    const symptoms = [transcript.substring(0, 50)]; 
-    const outbreak = processSurveillance(geofence, symptoms);
-    if (outbreak) {
-      outbreak_alert = outbreak;
-    }
-  }
-
   if (triage.action === 'DISPATCH') {
-    // 3. Module 2: Inventory-Aware Routing
-    const hospital = getHospitalByInventory(true);
-    
-    session.current_status = 'AMBULANCE_DISPATCHED';
-    
-    return {
-      session_id,
-      logic_module: outbreak_alert ? 'TRIAGE + SURVEILLANCE' : 'TRIAGE_AND_SOS',
-      data: {
-        triage,
-        hospital_assignment: hospital,
-        action: 'DISPATCH',
-        service: 'Ambulance',
-        outbreak: outbreak_alert
-      },
-      user_output: outbreak_alert 
-        ? `HealthOS Alert: Potential Outbreak in ${geofence}. Help is on the way to your location. Dispatching to ${hospital?.name || 'nearest trauma center'}.`
-        : `Help is on the way to your location. Stay on the line. Dispatching to ${hospital?.name || 'nearest trauma center'}. Apply pressure to any wounds.`,
-      status: session.current_status
-    };
+    hospitalAssignment = getHospitalByInventory(triage.priority !== 'LOW', patient?.bloodType);
   }
 
-  // 5. Module 3: Synthesis
-  const fhir = synthesizeFHIR({
-    patient_id: session_id,
-    symptoms: [transcript],
-    vitals: {},
-    diagnosis: 'Pending assessment',
-    action: triage.action
-  });
-  session.patient_record = fhir;
+  // Phase 3: Geofence Surveillance
+  const geofence = getGeofence(mockCoords[0], mockCoords[1]);
 
-  return {
-    session_id,
-    logic_module: 'PATIENT_SYNTHESIS',
-    data: { fhir },
-    user_output: "System Ready. Record synthesized and pushed to WhatsApp.",
-    status: 'RECORD_CREATED'
+  // Phase 4: Patient Record Synthesis
+  let clinicalBundle = null;
+  try {
+    clinicalBundle = generateEmergencyBundle(triage, patient, hospitalAssignment);
+  } catch (err) {
+    console.error('[STITCH_ORCHESTRATOR_SYNTHESIS_CRITICAL]: Synthesis failed.', err);
+    clinicalBundle = generateMinimalBundle(triage);
+  }
+
+  // Phase 5: Response Synthesis
+  const activeAlerts = useHealthStore.getState().surveillanceAlerts;
+  const hasOutbreak = activeAlerts.some(a => a.geofence === geofence);
+  const warning = hasOutbreak ? `⚠️ BIORISK ALERT: Cluster detected in ${geofence}.\n\n` : '';
+
+  const userOutput = triage.action === 'REJECT' 
+    ? `[SAFETY_PROTOCOL_TRIGGERED]: ${triage.instructions?.[0] || 'Medical calculation rejected.'}`
+    : triage.action === 'DISPATCH'
+      ? `${warning}DISPATCH_SEQUENCE_INITIATED: Sending help to your location. Closest facility: ${hospitalAssignment?.name ?? 'Searching...'}.`
+      : `${warning}SYMPTOM_ANALYSIS: ${triage.reason}. Protocol: ${triage.instructions?.join(' ')}`;
+
+  // Side Effect: Creating Emergency Record if Dispatch is triggered
+  if (triage.action === 'DISPATCH') {
+    const emergency: EmergencyRecord = {
+      id: Math.random().toString(36).substring(7),
+      timestamp: new Date().toISOString(),
+      transcript: transcript,
+      extraction: triage.extraction || {
+        what: 'Emergency Service Required',
+        why: triage.reason || 'Unknown distress',
+        where: 'User location',
+        who: patientId || 'Unknown Citizen',
+        how: 'Voice Request'
+      },
+      priority: triage.priority,
+      location: { lat: mockCoords[0], lng: mockCoords[1], text: triage.extraction?.where || 'Current Location' },
+      status: 'PENDING',
+      citizenId: patientId || 'ANONYMOUS_CITIZEN'
+    };
+    
+    // We update the state via the hook's getState() or let the component handle it.
+    // For this MVP, we'll let the component handle it to avoid side-effects in pure-ish logic,
+    // but the response WILL carry the extraction for UI.
+  }
+
+  const response: OrchestratorResponse = {
+    session_id: sessionId,
+    logic_module: 'PHASE_4_ECOSYSTEM_ORCHESTRATOR',
+    user_output: userOutput,
+    status: triage.action === 'DISPATCH' ? 'EMERGENCY_ACTIVE' : 'STABLE',
+    data: {
+      triage: triage,
+      hospital: hospitalAssignment,
+      geofence: geofence,
+      symptoms: triage.symptoms || [],
+      clinical_bundle: clinicalBundle,
+      outbreak_warning: hasOutbreak ? `Active ${geofence} cluster` : undefined,
+      extraction: triage.extraction // Essential for Responder UI
+    }
   };
+
+  return response;
 }

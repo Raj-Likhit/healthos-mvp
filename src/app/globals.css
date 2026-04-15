@@ -1,48 +1,246 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
+/* ============================================================
+   TAILWIND V4 THEME — Wire CSS custom props to utility names
+   Tailwind v4 requires the --color-* prefix inside @theme to
+   generate bg-*, text-*, border-* utilities from CSS variables.
+   ============================================================ */
+@theme {
+  /* Typography */
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* Radii */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+
+  /* === Color aliases — these generate the Tailwind utilities === */
+  --color-background:       var(--background);
+  --color-foreground:       var(--foreground);
+  --color-card:             var(--card);
+  --color-card-foreground:  var(--card-foreground);
+  --color-popover:          var(--popover);
+  --color-primary:          var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:        var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:            var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent:           var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive:      var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border:           var(--border);
+  --color-input:            var(--input);
+  --color-ring:             var(--ring);
+}
+
+/* ============================================================
+   LIGHT MODE — Earthy Clinical (Warm Bone / Bark)
+   ============================================================ */
 :root {
-  --background: #020617; /* Slate-950 */
-  --foreground: #f8fafc; /* Slate-50 */
-  --card: #0f172a; /* Slate-900 */
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #10b981; /* Emerald-500 */
-  --primary-foreground: #022c22;
-  --secondary: #334155; /* Slate-700 */
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b; /* Slate-800 */
-  --muted-foreground: #94a3b8; /* Slate-400 */
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  --destructive: #e11d48; /* Rose-600 */
-  --destructive-foreground: #f8fafc;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #10b981;
-  --radius: 0.5rem;
+  --background:              #fdfbf7; /* Bone White */
+  --foreground:              #292524; /* Stone-900 — deep bark, very readable */
+  --card:                    #ffffff;
+  --card-foreground:         #1c1917; /* Stone-950 */
+  --popover:                 #ffffff;
+  --popover-foreground:      #1c1917;
+  --primary:                 #065f46; /* Sage/Emerald-800 — Earthy Green */
+  --primary-foreground:      #fdfbf7;
+  --secondary:               #f5f5f4; /* Stone-100 */
+  --secondary-foreground:    #57534e; /* Stone-600 */
+  --muted:                   #f5f5f4;
+  --muted-foreground:        #78716c; /* Stone-500 */
+  --accent:                  #f5f5f4;
+  --accent-foreground:       #1c1917;
+  --destructive:             #991b1b;
+  --destructive-foreground:  #ffffff;
+  --border:                  #c8c5c2; /* Stone-300 — thicker/more visible than before */
+  --input:                   #d6d3d1; /* Stone-300 */
+  --ring:                    rgba(6, 95, 70, 0.25);
+  --radius:                  0.75rem;
+  --glow-emerald:            rgba(6, 95, 70, 0.05);
+}
+
+/* ============================================================
+   DARK MODE — Obsidian Charcoal (Zinc-950 base)
+   ============================================================ */
+[data-theme='dark'] {
+  --background:              #09090b; /* True Obsidian — Zinc-950 */
+  --foreground:              #f4f4f5; /* Zinc-100 */
+  --card:                    #18181b; /* Zinc-900 */
+  --card-foreground:         #f4f4f5;
+  --popover:                 #18181b;
+  --popover-foreground:      #f4f4f5;
+  --primary:                 #10b981; /* Emerald-500 */
+  --primary-foreground:      #022c22;
+  --secondary:               #27272a; /* Zinc-800 */
+  --secondary-foreground:    #d4d4d8; /* Zinc-300 */
+  --muted:                   #27272a;
+  --muted-foreground:        #a1a1aa; /* Zinc-400 */
+  --accent:                  #3f3f46; /* Zinc-700 */
+  --accent-foreground:       #fafafa;
+  --destructive:             #ef4444;
+  --destructive-foreground:  #ffffff;
+  --border:                  #3f3f46; /* Zinc-700 */
+  --input:                   #3f3f46;
+  --ring:                    rgba(16, 185, 129, 0.4);
+  --glow-emerald:            rgba(16, 185, 129, 0.12);
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+*, *::before, *::after {
+  border-color: var(--border);
+}
+
+/* Leaflet Customization */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #0a0a0a !important;
+}
+
+.leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+.strategic-marker {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
+  transition:
+    background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Thicker borders in light mode for earthy definition */
+:root .card-minimal,
+:root [class*="border"] {
+  --tw-border-opacity: 1;
+}
+
+/* ============================================================
+   COMPONENT UTILITIES
+   ============================================================ */
 @layer utilities {
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+    background-color: color-mix(in srgb, var(--card) 80%, transparent);
+    backdrop-filter: blur(12px);
+    border: 1.5px solid var(--border);
   }
-  .animate-pulse-slow {
-    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  .card-minimal {
+    background-color: var(--card);
+    border: 1.5px solid var(--border);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .card-minimal:hover {
+    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  /* Light mode: visibly thicker borders */
+  :root .card-minimal {
+    border-width: 2px;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Scrollbar hide utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* CSS hover lift — for non-Framer elements */
+  .hover-lift {
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+
+  /* Fade-in for page entry */
+  .page-enter {
+    animation: pageEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes themePulse {
+  0%   { opacity: 0.6; }
+  50%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
-  50% {
-    opacity: .5;
-  }
+}
+
+/* ─── Command Palette (cmdk) Styling ─── */
+[cmdk-root] {
+  display: flex;
+  flex-direction: column;
+}
+
+[cmdk-list] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: height 100ms ease;
+  padding-bottom: 8px;
+}
+
+[cmdk-item] {
+  content-visibility: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 150ms ease;
+}
+
+[cmdk-item][aria-selected='true'] {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+[cmdk-group-heading] {
+  user-select: none;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-muted-foreground);
+  opacity: 0.6;
 }
