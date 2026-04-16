@@ -30,7 +30,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body 
-        className="min-h-full flex flex-col transition-colors duration-300 pt-10"
+        className="min-h-full flex flex-col transition-colors duration-300 bg-background"
         suppressHydrationWarning
       >
         <Script
@@ -38,13 +38,9 @@ export default function RootLayout({
           strategy="beforeInteractive"
           src="/scripts/theme-init.js"
         />
-        <StatusBar />
         <ToastProvider />
-        <CommandPalette />
         <AuthGate>
-          <main className="flex-1 flex flex-col">
-            {children}
-          </main>
+          {children}
         </AuthGate>
       </body>
     </html>
